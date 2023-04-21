@@ -103,8 +103,8 @@ class App:
             min_value = min(column_data)
             max_value = max(column_data)
             column_name = data[col_idx][0]
-            mean_value = statistics.mean(column_data)
-            stdev_value = statistics.stdev(column_data)
+            mean_value = round(statistics.mean(column_data),2)
+            stdev_value = round(statistics.stdev(column_data),2)
             median_value = statistics.median(column_data)
             mode_value = statistics.mode(column_data)
             statistics_values.append(
@@ -115,6 +115,9 @@ class App:
                 statistics_values):
             self.min_max_treeview.insert("", tk.END, values=[column_name, min_value, max_value, mean_value, stdev_value,
                                                              median_value, mode_value])
+
+            for col in self.min_max_treeview["columns"]:
+                self.min_max_treeview.column(col, anchor="center")
 
     def calculate_correlation(self):
         # Clear existing data from Treeview
@@ -148,8 +151,8 @@ class App:
             self.correlation_treeview.heading(col, text=col, anchor=tk.CENTER)
         for i, row in enumerate(correlation_matrix):
             values = [round(x, 2) for x in row]
+            self.correlation_treeview.heading(columns[0], text=" ", anchor=tk.CENTER)
             self.correlation_treeview.insert("", tk.END, values=[columns[i]] + values)
-
 
 
 if __name__ == '__main__':
