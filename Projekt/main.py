@@ -62,7 +62,7 @@ class App:
         self.correlation_treeview.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         self.correlation_button = ttk.Button(self.correlation_tab, text="Calculate Correlation",
-                                             command="")
+                                             command=self.calculate_correlation)
         self.correlation_button.pack(side=tk.BOTTOM)
 
     def load_csv(self):
@@ -116,7 +116,39 @@ class App:
             self.min_max_treeview.insert("", tk.END, values=[column_name, min_value, max_value, mean_value, stdev_value,
                                                              median_value, mode_value])
 
+    def calculate_correlation(self):
+        # Clear existing data from Treeview
+        self.correlation_treeview.delete(*self.correlation_treeview.get_children())
 
+        # Get data from Treeview
+        data = []
+        columns = []
+        for idx, column in enumerate(self.treeview["columns"]):
+            is_number = True
+            column_data = []
+            for item in self.treeview.get_children():
+                value = self.treeview.set(item, column)
+                try:
+                    column_data.append(float(value))
+                except ValueError:
+                    is_number = False
+                    break
+            if is_number:
+                data.append(column_data)
+                columns.append(column)
+
+        # Calculate correlation matrix
+        data = np.array(data, dtype=np.float64)
+        correlation_matrix = np.corrcoef(data)
+
+        # Insert correlation matrix into Treeview
+        self.correlation_treeview["columns"] = columns
+        for col in columns:
+            self.correlation_treeview.column(col, width=100, anchor=tk.CENTER)
+            self.correlation_treeview.heading(col, text=col, anchor=tk.CENTER)
+        for i, row in enumerate(correlation_matrix):
+            values = [round(x, 2) for x in row]
+            self.correlation_treeview.insert("", tk.END, values=[columns[i]] + values)
 
 
 if __name__ == '__main__':
