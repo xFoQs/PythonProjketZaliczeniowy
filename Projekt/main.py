@@ -141,6 +141,7 @@ class App:
         data = np.array(data, dtype=np.float64)
         correlation_matrix = np.corrcoef(data)
 
+
         # Insert correlation matrix into Treeview
         self.correlation_treeview["columns"] = columns
         for col in columns:
