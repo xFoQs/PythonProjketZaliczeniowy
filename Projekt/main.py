@@ -4,6 +4,7 @@ from tkinter import ttk
 import csv
 import numpy as np
 import statistics
+from collections import Counter
 
 
 class App:
@@ -91,22 +92,38 @@ class App:
         # Get data from Treeview
         data = []
         for idx, column in enumerate(self.treeview["columns"]):
-            data.append([column])
+            column_data = []
             for item in self.treeview.get_children():
                 value = self.treeview.set(item, column)
-                data[idx].append(value)
+                try:
+                    column_data.append(float(value))
+                except ValueError:
+                    column_data.append(value)  # Handle text values
+            data.append(column_data)
 
         # Calculate statistics for each column
         statistics_values = []
         for col_idx in range(len(data)):
-            column_data = [float(value) for value in data[col_idx][1:]]
-            min_value = min(column_data)
-            max_value = max(column_data)
-            column_name = data[col_idx][0]
-            mean_value = round(statistics.mean(column_data),2)
-            stdev_value = round(statistics.stdev(column_data),2)
-            median_value = statistics.median(column_data)
-            mode_value = statistics.mode(column_data)
+            column_data = data[col_idx]
+            column_name = self.treeview["columns"][col_idx]
+            if all(isinstance(val, float) for val in column_data):
+                # Numeric column
+                min_value = min(column_data)
+                max_value = max(column_data)
+                mean_value = round(statistics.mean(column_data), 2)
+                stdev_value = round(statistics.stdev(column_data), 2)
+                median_value = statistics.median(column_data)
+                mode_value = statistics.mode(column_data)
+            else:
+                # Text column
+                counter = Counter(column_data)
+                mode_value = counter.most_common(1)[0][0] if counter else ""
+                min_value = ""
+                max_value = ""
+                mean_value = ""
+                stdev_value = ""
+                median_value = ""
+
             statistics_values.append(
                 (column_name, min_value, max_value, mean_value, stdev_value, median_value, mode_value))
 
@@ -116,8 +133,8 @@ class App:
             self.min_max_treeview.insert("", tk.END, values=[column_name, min_value, max_value, mean_value, stdev_value,
                                                              median_value, mode_value])
 
-            for col in self.min_max_treeview["columns"]:
-                self.min_max_treeview.column(col, anchor="center")
+        for col in self.min_max_treeview["columns"]:
+            self.min_max_treeview.column(col, anchor="center")
 
     def calculate_correlation(self):
         # Clear existing data from Treeview
@@ -127,16 +144,14 @@ class App:
         data = []
         columns = []
         for idx, column in enumerate(self.treeview["columns"]):
-            is_number = True
             column_data = []
             for item in self.treeview.get_children():
                 value = self.treeview.set(item, column)
                 try:
                     column_data.append(float(value))
                 except ValueError:
-                    is_number = False
                     break
-            if is_number:
+            else:
                 data.append(column_data)
                 columns.append(column)
 
@@ -145,13 +160,14 @@ class App:
         correlation_matrix = np.corrcoef(data)
 
         # Insert correlation matrix into Treeview
-        self.correlation_treeview["columns"] = columns
+        self.correlation_treeview["columns"] = [""] + columns
+        self.correlation_treeview.column("", width=100, anchor=tk.CENTER)
+        self.correlation_treeview.heading("", text="", anchor=tk.CENTER)
         for col in columns:
             self.correlation_treeview.column(col, width=100, anchor=tk.CENTER)
             self.correlation_treeview.heading(col, text=col, anchor=tk.CENTER)
         for i, row in enumerate(correlation_matrix):
             values = [round(x, 2) for x in row]
-            self.correlation_treeview.heading(columns[0], text=" ", anchor=tk.CENTER)
             self.correlation_treeview.insert("", tk.END, values=[columns[i]] + values)
 
 
