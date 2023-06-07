@@ -16,6 +16,7 @@ class App:
         self.load_button.menu = tk.Menu(self.load_button, tearoff=0)
         self.load_button["menu"] = self.load_button.menu
         self.load_button.menu.add_command(label="Open", command=self.load_csv)
+        self.load_button.menu.add_command(label="Export Data", command=self.export_data)
         self.load_button.pack()
 
         self.tree_frame = tk.Frame(self.master)
@@ -67,7 +68,11 @@ class App:
         self.correlation_button.pack(side=tk.BOTTOM)
 
     def load_csv(self):
-        file_path = filedialog.askopenfilename(title="Open CSV File", filetypes=(("CSV Files", "*.csv"), ("All Files", "*.*")))
+        # Usuń stare dane
+        self.treeview.delete(*self.treeview.get_children())
+
+        file_path = filedialog.askopenfilename(title="Open CSV File",
+                                               filetypes=(("CSV Files", "*.csv"), ("All Files", "*.*")))
         if file_path:
             with open(file_path, "r") as f:
                 reader = csv.reader(f)
@@ -75,6 +80,15 @@ class App:
                 for row in reader:
                     data.append(row)
             self.display_table(data)
+
+    def display_table(self, data):
+        columns = data[0]
+        self.treeview["columns"] = columns
+        for col in columns:
+            self.treeview.column(col, width=100, anchor=tk.CENTER)
+            self.treeview.heading(col, text=col, anchor=tk.CENTER)
+        for row in data[1:]:
+            self.treeview.insert("", tk.END, values=row)
 
     def display_table(self, data):
         columns = data[0]
@@ -283,6 +297,62 @@ class App:
             style.configure("Accent.TButton", background="#0078D7", foreground="white", font=("Arial", 12, "bold"))
 
             # Rest of the code...
+
+    def export_data(self):
+        selected_rows = self.treeview.selection()
+        if not selected_rows:
+            messagebox.showinfo("No Selection", "No rows selected.")
+            return
+
+        # Create dialog window
+        dialog_window = tk.Toplevel(self.master)
+        dialog_window.title("Select Columns")
+
+        # Create listbox to select columns
+        listbox = tk.Listbox(dialog_window, selectmode=tk.MULTIPLE)
+        listbox.pack(padx=10, pady=10)
+
+        # Add columns to listbox
+        columns = self.treeview["columns"]
+        for column in columns:
+            listbox.insert(tk.END, column)
+
+        def export_selected_columns():
+            # Get selected columns from listbox
+            selected_indices = listbox.curselection()
+            if not selected_indices:
+                messagebox.showinfo("No Selection", "No columns selected.")
+                dialog_window.destroy()
+                return
+
+            selected_columns = [columns[idx] for idx in selected_indices]
+
+            file_path = filedialog.asksaveasfilename(
+                title="Save CSV File", defaultextension=".csv",
+                filetypes=(("CSV Files", "*.csv"), ("All Files", "*.*")))
+
+            if file_path:
+                selected_data = []
+                headers = [self.treeview.heading(col)["text"] for col in selected_columns]
+                selected_data.append(headers)  # Add headers to selected data
+
+                for row in selected_rows:
+                    values = [self.treeview.set(row, col) for col in selected_columns]
+                    selected_data.append(values)
+
+                with open(file_path, "w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerows(selected_data)
+
+            # Close dialog window
+            dialog_window.destroy()
+
+        # Add button to export selected columns
+        export_button = tk.Button(dialog_window, text="Export", command=export_selected_columns)
+        export_button.pack(padx=10, pady=10)
+
+        # Run the dialog window
+        self.master.wait_window(dialog_window)
 
 
 if __name__ == '__main__':
