@@ -177,7 +177,7 @@ class App:
                 else:
                     # Text column
                     counter = Counter(column_data)
-                    mode_value = counter.most_common(1)[0][0] if counter else ""
+                    mode_value = f"{counter.most_common(1)[0][0]} ({counter.most_common(1)[0][1]})" if counter else ""
                     min_value = ""
                     max_value = ""
                     mean_value = ""
