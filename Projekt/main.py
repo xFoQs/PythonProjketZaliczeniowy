@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from tkinter import ttk
 import csv
 import numpy as np
@@ -86,89 +86,203 @@ class App:
             self.treeview.insert("", tk.END, values=row)
 
     def calculate_min_max(self):
-        # Clear existing data from Treeview
-        self.min_max_treeview.delete(*self.min_max_treeview.get_children())
+        # Check if the window is already open
+        if getattr(self, "min_max_window", None) is not None and self.min_max_window.winfo_exists():
+            # Window is already open, do nothing
+            return
 
-        # Get data from Treeview
-        data = []
-        for idx, column in enumerate(self.treeview["columns"]):
-            column_data = []
-            for item in self.treeview.get_children():
-                value = self.treeview.set(item, column)
-                try:
-                    column_data.append(float(value))
-                except ValueError:
-                    column_data.append(value)  # Handle text values
-            data.append(column_data)
+        # Create a new window
+        self.min_max_window = tk.Toplevel(self.master)
+        min_max_window = self.min_max_window
+        min_max_window.title("Select Columns")
 
-        # Calculate statistics for each column
-        statistics_values = []
-        for col_idx in range(len(data)):
-            column_data = data[col_idx]
-            column_name = self.treeview["columns"][col_idx]
-            if all(isinstance(val, float) for val in column_data):
-                # Numeric column
-                min_value = min(column_data)
-                max_value = max(column_data)
-                mean_value = round(statistics.mean(column_data), 2)
-                stdev_value = round(statistics.stdev(column_data), 2)
-                median_value = statistics.median(column_data)
-                mode_value = statistics.mode(column_data)
-            else:
-                # Text column
-                counter = Counter(column_data)
-                mode_value = counter.most_common(1)[0][0] if counter else ""
-                min_value = ""
-                max_value = ""
-                mean_value = ""
-                stdev_value = ""
-                median_value = ""
+        # Configure the window size and position
+        window_width = 400
+        window_height = 300
+        screen_width = min_max_window.winfo_screenwidth()
+        screen_height = min_max_window.winfo_screenheight()
+        x = int((screen_width / 2) - (window_width / 2))
+        y = int((screen_height / 2) - (window_height / 2))
+        min_max_window.geometry(f"{window_width}x{window_height}+{x}+{y}")
 
-            statistics_values.append(
-                (column_name, min_value, max_value, mean_value, stdev_value, median_value, mode_value))
+        # Create a label
+        label = ttk.Label(min_max_window, text="Select columns for statistical calculations",
+                          font=("Arial", 14, "bold"))
+        label.pack(pady=20)
 
-        # Insert statistics values into Treeview
-        for i, (column_name, min_value, max_value, mean_value, stdev_value, median_value, mode_value) in enumerate(
-                statistics_values):
-            self.min_max_treeview.insert("", tk.END, values=[column_name, min_value, max_value, mean_value, stdev_value,
-                                                             median_value, mode_value])
+        # Create a listbox to display available columns
+        listbox = tk.Listbox(min_max_window, selectmode=tk.MULTIPLE, font=("Arial", 12), height=8)
+        listbox.pack()
 
-        for col in self.min_max_treeview["columns"]:
-            self.min_max_treeview.column(col, anchor="center")
+        # Add columns to the listbox
+        columns = self.treeview["columns"]
+        for column in columns:
+            listbox.insert(tk.END, column)
+
+        # Select all columns by default
+        listbox.selection_set(0, tk.END)
+
+        def calculate():
+            # Get selected columns
+            selected_columns = [listbox.get(index) for index in listbox.curselection()]
+
+            if len(selected_columns) == 0:
+                # Show error message if no columns are selected
+                messagebox.showerror("Error", "Please select at least one column.")
+                return
+
+            # Clear existing data from Treeview
+            self.min_max_treeview.delete(*self.min_max_treeview.get_children())
+
+            # Get data from Treeview
+            data = []
+            for idx, column in enumerate(self.treeview["columns"]):
+                if column in selected_columns:
+                    column_data = []
+                    for item in self.treeview.get_children():
+                        value = self.treeview.set(item, column)
+                        try:
+                            column_data.append(float(value))
+                        except ValueError:
+                            column_data.append(value)  # Handle text values
+                    data.append(column_data)
+
+            # Calculate statistics for each selected column
+            statistics_values = []
+            for col_idx in range(len(data)):
+                column_data = data[col_idx]
+                column_name = selected_columns[col_idx]
+                if all(isinstance(val, float) for val in column_data):
+                    # Numeric column
+                    min_value = min(column_data)
+                    max_value = max(column_data)
+                    mean_value = round(statistics.mean(column_data), 2)
+                    stdev_value = round(statistics.stdev(column_data), 2)
+                    median_value = statistics.median(column_data)
+                    mode_value = statistics.mode(column_data)
+                else:
+                    # Text column
+                    counter = Counter(column_data)
+                    mode_value = counter.most_common(1)[0][0] if counter else ""
+                    min_value = ""
+                    max_value = ""
+                    mean_value = ""
+                    stdev_value = ""
+                    median_value = ""
+
+                statistics_values.append(
+                    (column_name, min_value, max_value, mean_value, stdev_value, median_value, mode_value))
+
+            # Insert statistics values into Treeview
+            for i, (column_name, min_value, max_value, mean_value, stdev_value, median_value, mode_value) in enumerate(
+                    statistics_values):
+                self.min_max_treeview.insert("", tk.END,
+                                             values=[column_name, min_value, max_value, mean_value, stdev_value,
+                                                     median_value, mode_value])
+
+            for col in self.min_max_treeview["columns"]:
+                self.min_max_treeview.column(col, anchor="center")
+
+            # Close the window
+            min_max_window.destroy()
+
+        # Create a button to calculate statistics
+        calculate_button = ttk.Button(min_max_window, text="Calculate", command=calculate)
+        calculate_button.pack()
 
     def calculate_correlation(self):
-        # Clear existing data from Treeview
-        self.correlation_treeview.delete(*self.correlation_treeview.get_children())
+            # Check if the window is already open
+            if getattr(self, "correlation_window", None) is not None and self.correlation_window.winfo_exists():
+                # Window is already open, do nothing
+                return
 
-        # Get data from Treeview
-        data = []
-        columns = []
-        for idx, column in enumerate(self.treeview["columns"]):
-            column_data = []
-            for item in self.treeview.get_children():
-                value = self.treeview.set(item, column)
+            # Clear existing data from Treeview
+            self.correlation_treeview.delete(*self.correlation_treeview.get_children())
+
+            def calculate():
+                # Get selected columns
+                selected_columns = listbox.curselection()
+                selected_columns = [columns[index] for index in selected_columns]
+
+                if len(selected_columns) < 2:
+                    # Show error message if less than 2 columns are selected
+                    messagebox.showerror("Error", "Please select at least two columns.")
+                    return
+
+                # Get data from Treeview
+                data = []
+                for idx, column in enumerate(self.treeview["columns"]):
+                    if column in selected_columns:
+                        column_data = []
+                        for item in self.treeview.get_children():
+                            value = self.treeview.set(item, column)
+                            try:
+                                column_data.append(float(value))
+                            except ValueError:
+                                break
+                        else:
+                            data.append(column_data)
+
+                # Calculate correlation matrix
+                data = np.array(data, dtype=np.float64)
+                correlation_matrix = np.corrcoef(data)
+
+                # Insert correlation matrix into Treeview
+                self.correlation_treeview["columns"] = [""] + selected_columns
+                self.correlation_treeview.column("", width=100, anchor=tk.CENTER)
+                self.correlation_treeview.heading("", text="", anchor=tk.CENTER)
+                for col in selected_columns:
+                    self.correlation_treeview.column(col, width=100, anchor=tk.CENTER)
+                    self.correlation_treeview.heading(col, text=col, anchor=tk.CENTER)
+                for i, row in enumerate(correlation_matrix):
+                    values = [round(x, 2) for x in row]
+                    self.correlation_treeview.insert("", tk.END, values=[selected_columns[i]] + values)
+
+                # Close the menu
+                correlation_window.destroy()
+
+            # Create a new window
+            self.correlation_window = tk.Toplevel(self.master)
+            correlation_window = self.correlation_window
+            correlation_window.title("Select Columns")
+
+            # Create a label
+            label = ttk.Label(correlation_window, text="Select columns for correlation calculation",
+                              font=("Arial", 14, "bold"))
+            label.pack(pady=20)
+
+            # Create a listbox to display available columns
+            listbox = tk.Listbox(correlation_window, selectmode=tk.MULTIPLE)
+            listbox.pack()
+
+            # Add columns to the listbox
+            columns = self.treeview["columns"]
+            for column in columns:
+                column_data = [self.treeview.set(item, column) for item in self.treeview.get_children()]
                 try:
-                    column_data.append(float(value))
+                    column_data = [float(value) for value in column_data]
+                    listbox.insert(tk.END, column)
                 except ValueError:
-                    break
-            else:
-                data.append(column_data)
-                columns.append(column)
+                    continue
 
-        # Calculate correlation matrix
-        data = np.array(data, dtype=np.float64)
-        correlation_matrix = np.corrcoef(data)
+            # Select all columns by default
+            listbox.selection_set(0, tk.END)
 
-        # Insert correlation matrix into Treeview
-        self.correlation_treeview["columns"] = [""] + columns
-        self.correlation_treeview.column("", width=100, anchor=tk.CENTER)
-        self.correlation_treeview.heading("", text="", anchor=tk.CENTER)
-        for col in columns:
-            self.correlation_treeview.column(col, width=100, anchor=tk.CENTER)
-            self.correlation_treeview.heading(col, text=col, anchor=tk.CENTER)
-        for i, row in enumerate(correlation_matrix):
-            values = [round(x, 2) for x in row]
-            self.correlation_treeview.insert("", tk.END, values=[columns[i]] + values)
+            # Create a button to calculate correlation
+            calculate_button = ttk.Button(correlation_window, text="Calculate", command=calculate)
+            calculate_button.pack(pady=20)
+
+            # Apply styling
+            correlation_window.configure(background="#f2f2f2")
+            label.configure(foreground="#333333")
+            listbox.configure(background="#f2f2f2", foreground="#333333", font=("Arial", 12))
+            calculate_button.configure(style="Accent.TButton")
+
+            # Add a custom style for the button
+            style = ttk.Style()
+            style.configure("Accent.TButton", background="#0078D7", foreground="white", font=("Arial", 12, "bold"))
+
+            # Rest of the code...
 
 
 if __name__ == '__main__':
